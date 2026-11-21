@@ -1,0 +1,15 @@
+{
+  "name": "n8n",
+  "description": "Builds and edits n8n workflows through the instance-level MCP server (tailnet only).",
+  "prompt": null,
+  "mcpServers": {
+    "n8n": {
+      "type": "http",
+      "url": "https://n8n.<tailnet>.ts.net/mcp-server/http",
+      "headers": { "Authorization": "Bearer ${N8N_MCP_TOKEN}" }
+    }
+  },
+  "tools": ["read", "write", "shell", "grep", "glob", "@n8n"],
+  "allowedTools": [],
+  "includeMcpJson": false
+}

@@ -42,14 +42,30 @@ Tests (run each tier file as its own command): `python -m pytest tests/test_01_s
 ## How the agent talks to n8n: two paths
 
 - **MCP** (`/mcp-server/http`) for building and editing: `get_workflow_sdk_reference` first, then `validate_workflow`,
-  then `create_workflow_from_code` or `update_workflow`. Also search, details, execute, test, publish, archive and restore.
-  MCP has **no delete**. Archive is the closest.
-- **n8n-cli / REST API** for delete and bulk work. `npx @n8n/cli` with `N8N_URL` and `N8N_API_KEY` in the environment,
-  or `X-N8N-API-KEY` on `/api/v1/workflows`. Whether `DELETE` needs an archive first on 2.48.7 is checked by the tier 5
-  round trip once tokens exist.
-- Kiro CLI: `kiro-cli mcp add` has `--url` and OAuth options but no `--header` flag. For the bearer-token route the
-  header entry has to be written by hand into the Kiro MCP settings file (check the key name in the Kiro docs first).
-  The token then sits in that file in plain text, so keep it out of every repo. OAuth avoids this.
+  then `create_workflow_from_code` or `update_workflow` (rename is `setWorkflowMetadata`). Also search, details, execute,
+  test, publish, archive and restore. MCP has **no delete**. Archive is the closest.
+- **n8n-cli / REST API** for delete and bulk work. `npx @n8n/cli workflow delete <id>` with `N8N_URL` and `N8N_API_KEY`
+  in the environment, or `DELETE /api/v1/workflows/{id}` with `X-N8N-API-KEY`. On 2.48.7 `DELETE` also works on a
+  workflow that is not archived (verified live), so the archive step is optional.
+- Verified live (tier 5 round trip): MCP create, read, update and archive, then REST delete, then GET returns 404.
+
+### Start the agent (Kiro CLI)
+
+One time: copy `docs/kiro-agent-n8n.example.json` to `~/.kiro/agents/n8n.json` and put your tailnet name in the `url`.
+This is a separate agent config, not the global `~/.kiro/settings/mcp.json`, so other Kiro sessions do not load the n8n
+server (`includeMcpJson` is false). `kiro-cli mcp add` has no `--header` flag, which is why the entry is a file. OAuth is
+the alternative if you prefer no token at all. The token is never in the file: the header reads `${N8N_MCP_TOKEN}` from the
+environment. Use the plain `${VAR}` form. `${env:VAR}` is not expanded by Kiro CLI 3.5.0 and ends in an OAuth error.
+
+```
+kiro-cli chat --agent n8n
+```
+
+The token must be in that shell's environment. `scripts/n8n-agent.ps1` reads `N8N_MCP_TOKEN` from the git-ignored
+`.env` into its own process and starts `kiro-cli chat --agent n8n` (extra arguments are passed on). Check the
+connection without a chat: `kiro-cli chat --agent n8n --no-interactive --require-mcp-startup "hi"` exits 3 if the
+server fails to start. For delete, run `npx @n8n/cli` in a shell that has `N8N_URL` and `N8N_API_KEY`.
+
 
 ## Limits
 

@@ -210,8 +210,10 @@ def test_workflow_round_trip_mcp_create_api_delete(n8n_fqdn_remote, env):
         got = requests.get(f"{base}/api/v1/workflows/{wid}", headers=h, timeout=45)
         assert got.status_code == 200 and got.json()["name"] == "zz-deploy-smoke"
         upd = _tool(base, token, session, "update_workflow",
-                    {"workflowId": wid, "operations": [{"type": "renameWorkflow", "name": "zz-deploy-smoke-2"}]}, 4)
+                    {"workflowId": wid, "operations": [{"type": "setWorkflowMetadata", "name": "zz-deploy-smoke-2"}]}, 4)
         assert upd, "update returned nothing"
+        renamed = requests.get(f"{base}/api/v1/workflows/{wid}", headers=h, timeout=45)
+        assert renamed.status_code == 200 and renamed.json()["name"] == "zz-deploy-smoke-2"
     finally:
         d = requests.delete(f"{base}/api/v1/workflows/{wid}", headers=h, timeout=45)
         if d.status_code != 200:  # the review left open whether delete needs archive first
