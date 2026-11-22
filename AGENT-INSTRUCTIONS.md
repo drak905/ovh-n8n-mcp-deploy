@@ -401,6 +401,11 @@ Always in this order:
    (Workflow settings). `search_workflows` still lists it, but details, update and run calls fail. Tell the owner.
 10. Tools that touch credentials, agents, skills, data tables or user preferences exist on this server. Use them only when the
     owner's task names them. Never create or change a credential unless the owner asks.
+11. **File nodes** (Read/Write Files from Disk and similar) may only use the folder `/home/node/.n8n-files` (the path
+    inside the n8n container; the host folder is `/opt/n8n/files`). Use paths like `/home/node/.n8n-files/report.txt`.
+    Every other path (`/tmp`, `/var/tmp`, `/home/node/.n8n`, relative paths) fails with "Access to the file is not
+    allowed." by design. Do not try other paths and do not ask to open more folders. The folder is private to n8n:
+    to get data back to you, read it from the execution output (`get_workflow_execution` with `includeData`).
 
 ## 7. Delete (REST or CLI, never MCP)
 
@@ -474,6 +479,7 @@ to `<N8N_URL>/mcp-server/http`, with headers `Authorization: Bearer <token>`, `C
 | `validate_workflow` returns `valid: false` | SDK code error | Read the errors, re-read `get_workflow_sdk_reference`, fix the code. Do not create until valid |
 | HTTP 404 from `/mcp-server/http` | URL is wrong (for example it has a doubled path) | The base `<N8N_URL>` must not end in `/mcp-server/http` when you add that path yourself |
 | Editor login loops | The page was opened with `http://` or an IP address | Always use the `https://` name |
+| "Access to the file is not allowed." on a file node | The path is outside `/home/node/.n8n-files` | Use a path inside that folder (step 6, point 11) |
 
 ## 11. Finish
 

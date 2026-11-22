@@ -10,8 +10,19 @@ PC / phone on the tailnet --https--> ts-n8n (Tailscale Serve, trusted cert)
                                       n8n  --> n8n-postgres
 ```
 
-Bind mounts on the VPS: `/opt/n8n/{data,postgres,ts-state,backups}`. Memory caps: sidecar 256m, n8n 1536m, Postgres 512m
+Bind mounts on the VPS: `/opt/n8n/{data,files,postgres,ts-state,backups}`. Memory caps: sidecar 256m, n8n 1536m, Postgres 512m
 (swap equals memory, so these containers do not use host swap).
+
+## File access for workflows
+
+n8n 2.x limits the file nodes (Read/Write Files from Disk, and others that touch the disk). `N8N_RESTRICT_FILE_ACCESS_TO`
+defaults to `~/.n8n-files`, and `N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES` (default `true`) blocks `~/.n8n`, which holds the
+key config. Any other path fails with "Access to the file is not allowed." by design.
+
+This stack sets `N8N_RESTRICT_FILE_ACCESS_TO=/home/node/.n8n-files` (one folder, no list) and bind-mounts
+`/opt/n8n/files` (uid 1000, mode 700) there. Workflows use paths like `/home/node/.n8n-files/report.txt`. The folder sits
+next to `~/.n8n`, not inside it, and the `~/.n8n` block stays on. To change the folder, edit the compose file, then run
+`python scripts/deploy.py stage` and `python scripts/deploy.py up` (only the `n8n` container is recreated).
 
 ## Deploy
 
@@ -83,12 +94,12 @@ server fails to start. For delete, run `npx @n8n/cli` in a shell that has `N8N_U
 ## Backup and restore
 
 `/etc/cron.d/n8n-backup` runs `backup_n8n.sh` at 03:40: a `pg_dump -Fc` (checked with `pg_restore -l`) plus the data
-folder, minus n8n's `config` file, as `/opt/n8n/backups/n8n-*.tar.gz` (mode 600, 14 days kept). Backups stay on the same
-disk, so copy them off the VPS for real disaster recovery.
+folder (minus n8n's `config` file) and the `files/` folder, as `/opt/n8n/backups/n8n-*.tar.gz` (mode 600, 14 days kept).
+Backups stay on the same disk, so copy them off the VPS for real disaster recovery.
 
 `restore_test_n8n.sh <archive>` loads the dump into a scratch database, checks it and drops it. The live database is not
 touched. A real restore: stop `n8n`, drop and recreate the `n8n` database in `n8n-postgres`, run
-`pg_restore -U n8n -d n8n --no-owner` on the dump from the archive, copy the archive's `data/` back to `/opt/n8n/data`
+`pg_restore -U n8n -d n8n --no-owner` on the dump from the archive, copy the archive's `data/` back to `/opt/n8n/data` and `files/` back to `/opt/n8n/files`
 (owner uid 1000), put the saved encryption key in `/opt/n8n/.env`, start `n8n`. This live path is documented, not tested.
 
 ## Recovery over SSH

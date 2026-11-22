@@ -93,10 +93,10 @@ def stage(v, env):
     for src, dst in FILES.items():
         v.put(str(ROOT / src), f"{STAGE}/{dst}")
     v.run(" && ".join(f"test -s {STAGE}/{d}" for d in FILES.values()))
-    # data/ belongs to the n8n user (uid 1000), postgres/ to the postgres user (uid 70 in the alpine image).
+    # data/ and files/ belong to the n8n user (uid 1000), postgres/ to the postgres user (uid 70 in the alpine image).
     # ts-state/ and backups/ are root-private.
     v.run(f"sudo install -d -m 755 -o root -g root {R} {R}/docker {R}/docker/ts-config {R}/scripts && "
-          f"sudo install -d -m 700 -o 1000 -g 1000 {R}/data && "
+          f"sudo install -d -m 700 -o 1000 -g 1000 {R}/data {R}/files && "
           f"sudo install -d -m 700 -o 70 -g 70 {R}/postgres && "
           f"sudo install -d -m 700 -o root -g root {R}/ts-state {R}/backups && "
           f"sudo install -m 644 -o root -g root {STAGE}/docker/compose.yaml {R}/docker/compose.yaml && "

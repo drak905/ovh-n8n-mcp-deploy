@@ -92,6 +92,19 @@ def test_other_stacks_untouched_by_recreate(vps):
     assert vps.run("docker inspect -f '{{.State.StartedAt}}' vn-stock-scanner") == base
 
 
+# ---- files folder ----
+
+def test_file_written_in_container_is_visible_on_host(vps):
+    """A file the n8n user writes into the allowed folder lands in /opt/n8n/files (the live Read/Write node proof is manual)."""
+    name = f"zz-files-test-{int(time.time())}.txt"
+    vps.run(f"docker exec n8n sh -c 'echo hello-files > /home/node/.n8n-files/{name}'")
+    try:
+        assert vps.run(f"sudo cat {REMOTE}/files/{name}") == "hello-files"
+        assert vps.run(f"sudo stat -c '%u' {REMOTE}/files/{name}") == "1000"
+    finally:
+        vps.run(f"sudo rm -f {REMOTE}/files/{name}")
+
+
 # ---- backup ----
 
 def test_scripts_installed_root_owned(vps):
@@ -122,6 +135,16 @@ def test_archive_does_not_hold_the_encryption_key_or_env(vps):
                   f"k=$(grep '^N8N_ENCRYPTION_KEY=' {REMOTE}/.env | cut -d= -f2-) && "
                   f"sudo grep -rlF -- \"$k\" $d | wc -l; sudo rm -rf $d")
     assert out.splitlines()[-1] == "0", "the encryption key is inside the backup"
+
+
+def test_archive_holds_the_files_folder(vps):
+    name = f"zz-backup-files-{int(time.time())}.txt"
+    vps.run(f"sudo install -m 600 -o 1000 -g 1000 /dev/null {REMOTE}/files/{name}")
+    try:
+        path = _backup(vps)
+        assert any(n.endswith("/" + name) and "/files/" in n for n in vps.run(f"sudo tar -tzf {path}").splitlines())
+    finally:
+        vps.run(f"sudo rm -f {REMOTE}/files/{name}")
 
 
 def test_restore_test_into_scratch_database(vps):

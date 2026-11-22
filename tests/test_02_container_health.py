@@ -46,11 +46,12 @@ def test_memory_limits_and_no_extra_swap(vps):
 
 def test_bind_mounts_private_and_on_local_disk(vps):
     mounts = {x["Destination"]: x["Source"] for x in inspect(vps, "n8n")["Mounts"]}
-    assert mounts == {"/home/node/.n8n": f"{REMOTE}/data"}
+    assert mounts == {"/home/node/.n8n": f"{REMOTE}/data", "/home/node/.n8n-files": f"{REMOTE}/files"}
     pg = {x["Destination"]: x["Source"] for x in inspect(vps, "n8n-postgres")["Mounts"]}
     assert pg == {"/var/lib/postgresql/data": f"{REMOTE}/postgres"}
     assert vps.run(f"stat -f -c %T {REMOTE}/data") not in {"nfs", "nfs4", "cifs", "smb2", "fuseblk"}
     assert vps.run(f"stat -c '%a %u' {REMOTE}/data") == "700 1000"
+    assert vps.run(f"stat -c '%a %u' {REMOTE}/files") == "700 1000"
     assert vps.run(f"sudo stat -c '%a' {REMOTE}/postgres") == "700"
     assert vps.run(f"sudo stat -c '%a %U' {REMOTE}/ts-state {REMOTE}/backups").splitlines() == ["700 root", "700 root"]
 
@@ -97,6 +98,15 @@ def test_n8n_container_got_the_right_settings(vps):
     assert vps.run("docker exec n8n printenv N8N_WEBHOOK_URL").startswith("https://")
     assert vps.run("docker exec n8n sh -c 'printenv WEBHOOK_URL; true'") == ""
     assert vps.run("docker exec n8n sh -c 'test -n \"$N8N_ENCRYPTION_KEY\" && echo set'") == "set"
+
+
+def test_file_nodes_limited_to_the_files_folder(vps):
+    """N8N_RESTRICT_FILE_ACCESS_TO names exactly one folder, it is the /opt/n8n/files bind mount, and the ~/.n8n block is on."""
+    assert vps.run("docker exec n8n printenv N8N_RESTRICT_FILE_ACCESS_TO") == "/home/node/.n8n-files"
+    assert vps.run("docker exec n8n sh -c 'printenv N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES; true'") in {"", "true"}
+    mounts = {x["Destination"]: x["Source"] for x in inspect(vps, "n8n")["Mounts"]}
+    assert mounts["/home/node/.n8n-files"] == f"{REMOTE}/files"
+    assert "/home/node/.n8n-files" != "/home/node/.n8n" and mounts["/home/node/.n8n"] == f"{REMOTE}/data"
 
 
 def test_sidecar_online_with_expected_name(vps, sidecar_status):
