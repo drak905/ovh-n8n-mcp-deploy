@@ -130,6 +130,14 @@ def test_n8n_environment(compose):
     assert "N8N_SECURE_COOKIE" not in e or str(e["N8N_SECURE_COOKIE"]).lower() == "true"
 
 
+def test_file_nodes_limited_to_one_folder(compose):
+    """Read/Write Files from Disk may only use the mounted folder. The ~/.n8n block stays on (it holds the key config)."""
+    e = compose["services"]["n8n"]["environment"]
+    assert e["N8N_RESTRICT_FILE_ACCESS_TO"] == "/home/node/.n8n-files", "one folder, no list"
+    assert ";" not in e["N8N_RESTRICT_FILE_ACCESS_TO"]
+    assert "N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES" not in e or str(e["N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES"]).lower() == "true"
+
+
 def test_postgres_settings(compose):
     pg = compose["services"]["postgres"]
     cmd = " ".join(pg["command"]) if isinstance(pg["command"], list) else pg["command"]
@@ -141,6 +149,7 @@ def test_postgres_settings(compose):
 def test_bind_mounts_under_opt_n8n(compose):
     s = compose["services"]
     assert "/opt/n8n/data:/home/node/.n8n" in s["n8n"]["volumes"]
+    assert "/opt/n8n/files:/home/node/.n8n-files" in s["n8n"]["volumes"]
     assert "/opt/n8n/postgres:/var/lib/postgresql/data" in s["postgres"]["volumes"]
     assert "volumes" not in compose, "named volumes would make backups depend on the project name"
 
@@ -209,7 +218,7 @@ def test_backup_script_hardening():
     text = sh.read_text(encoding="utf-8")
     assert text.startswith("#!/usr/bin/env bash")
     for needle in ("umask 077", "mktemp -d", "trap ", "flock", "-mtime", "chmod 600", "pg_dump", "-Fc", "pg_restore -l",
-                   "tar -tzf", ".partial", "-name 'n8n-*.tar.gz'", "--exclude=./config"):
+                   "tar -tzf", ".partial", "-name 'n8n-*.tar.gz'", "--exclude=./config", "N8N_FILES_DIR"):
         assert needle in text, needle
     assert "N8N_ENCRYPTION_KEY" not in text and ".env" not in text, "the key must never go into a backup"
     bash = shutil.which("bash")
