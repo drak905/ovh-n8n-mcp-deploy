@@ -41,6 +41,8 @@ Tests (run each tier file as its own command): `python -m pytest tests/test_01_s
 
 ## How the agent talks to n8n: two paths
 
+Handing this to an agent CLI? Point it at [AGENT-INSTRUCTIONS.md](AGENT-INSTRUCTIONS.md): setup, self-test, workflow rules and safety rules in one file.
+
 - **MCP** (`/mcp-server/http`) for building and editing: `get_workflow_sdk_reference` first, then `validate_workflow`,
   then `create_workflow_from_code` or `update_workflow` (rename is `setWorkflowMetadata`). Also search, details, execute,
   test, publish, archive and restore. MCP has **no delete**. Archive is the closest.
